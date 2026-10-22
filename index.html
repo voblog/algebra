@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Link Hub</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;700&family=DM+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: centered launcher. Animated canvas background sits behind the content; clock + toolbar on top, sections of link buttons below. Settings, Admin login and Admin open as modal sheets. Single dark look by choice. */
+:root {
+  --bg: #0b0d14;
+  --surface: #151927;
+  --surface-hi: #1d2336;
+  --line: #2a3150;
+  --fg: #eef0f8;
+  --muted: #8b93b2;
+  --accent: #7c8cff;
+  --accent-2: #b07cff;
+  --danger: #ff6b7d;
+  --font-display: "Sora", "Segoe UI", system-ui, sans-serif;
+  --font-body: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+#bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+main { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+
+.tools { display: flex; justify-content: flex-end; gap: 8px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px; font: 500 0.85rem var(--font-body); color: var(--fg);
+  background: rgba(21,25,39,.72); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px;
+  cursor: pointer; backdrop-filter: blur(8px); transition: border-color .15s ease, background .15s ease;
+}
+.pill:hover { border-color: var(--accent); background: rgba(29,35,54,.85); }
+.pill svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+header { text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.clock { font-family: var(--font-display); font-weight: 700; font-size: clamp(2.6rem, 9vw, 4rem); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 2px 24px rgba(0,0,0,.45); }
+.date { color: var(--muted); font-size: 1rem; }
+
+#sections { display: flex; flex-direction: column; gap: 28px; }
+.sec h2 { font-family: var(--font-display); font-weight: 500; font-size: 0.78rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; text-shadow: 0 1px 12px rgba(0,0,0,.6); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.link {
+  display: flex; align-items: center; gap: 14px; min-width: 0; width: 100%; text-align: left;
+  font: inherit; padding: 18px 20px; color: var(--fg); cursor: pointer;
+  background: rgba(21,25,39,.78); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(8px);
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  transition: transform .15s ease, border-color .15s ease, background .15s ease;
+}
+.link:hover { background: rgba(29,35,54,.9); border-color: var(--accent); transform: translateY(-2px); }
+.badge {
+  flex: none; width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; color: #0b0d14;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+}
+.name { min-width: 0; font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hint { color: var(--muted); margin: 0; font-size: 0.9rem; }
+footer { text-align: center; color: var(--muted); font-size: 0.8rem; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+
+/* Modals */
+.overlay {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center;
+  background: rgba(5,6,12,.72); backdrop-filter: blur(6px);
+  padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.sheet { width: 100%; max-width: 580px; max-height: 100%; overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 22px; }
+.sheet.narrow { max-width: 400px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; margin: 0; }
+.sheet h4 { font-family: var(--font-display); font-weight: 500; font-size: 0.75rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.x { background: none; border: 0; color: var(--muted); font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 2px 8px; border-radius: 8px; }
+.x:hover { color: var(--fg); background: var(--surface-hi); }
+.bgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { text-align: left; cursor: pointer; font: 500 0.9rem var(--font-body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.tile .sw { height: 46px; border-radius: 8px; }
+.tile:hover { border-color: var(--muted); }
+.tile[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 4px 0; cursor: pointer; }
+.switch small { display: block; color: var(--muted); font-size: 0.8rem; margin-top: 2px; }
+.switch input { appearance: none; flex: none; width: 42px; height: 24px; border-radius: 999px; background: var(--line); position: relative; cursor: pointer; transition: background .15s ease; }
+.switch input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--fg); transition: transform .15s ease; }
+.switch input:checked { background: var(--accent); }
+.switch input:checked::after { transform: translateX(18px); }
+form.row { display: flex; flex-wrap: wrap; gap: 8px; }
+input[type="text"], input[type="password"], select {
+  flex: 1 1 140px; min-width: 0; font: 400 0.95rem var(--font-body); color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+}
+.btn { font: 500 0.9rem var(--font-body); color: #0b0d14; background: var(--accent); border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; }
+.btn:hover { filter: brightness(1.1); }
+.btn:disabled { opacity: .6; cursor: default; }
+.btn.ghost { color: var(--fg); background: var(--surface-hi); border: 1px solid var(--line); }
+.msg { margin: 0; min-height: 1.2em; font-size: 0.85rem; color: var(--muted); }
+.msg.err { color: var(--danger); }
+.manage { display: flex; flex-direction: column; gap: 14px; }
+.msec { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.msec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--surface-hi); }
+.msec-head strong { font-family: var(--font-display); font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.mrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--line); }
+.mrow span { min-width: 0; overflow-wrap: anywhere; }
+.mrow small { color: var(--muted); display: block; }
+.small-btn { flex: none; font: 500 0.8rem var(--font-body); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+.small-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+textarea { display: block; width: 100%; min-height: 110px; resize: vertical; font: 400 0.9rem/1.4 var(--font-body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.prev { flex: none; width: 36px; height: 36px; border-radius: 8px; object-fit: cover; border: 1px solid var(--line); background: var(--bg); }
+
+.text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sub { color: var(--muted); font-size: 0.82rem; }
+.lock { flex: none; margin-left: auto; color: var(--muted); display: grid; }
+.lock svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sec-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+.sec-head h2 { margin: 0; }
+.pwrow input { padding: 7px 10px; font-size: 0.85rem; }
+
+/* Tab settings */
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field label { font-size: 0.8rem; color: var(--muted); }
+.row2 { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (prefers-reduced-motion: reduce) { .link, .pill { transition: none; } .link:hover { transform: none; } }
+
+/* Standalone reset */
+[hidden] { display: none !important; }
+body { margin: 0; }
+</style>
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<main>
+  <div class="tools">
+    <button class="pill" id="openSettings" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      Settings
+    </button>
+    <button class="pill" id="openAdmin" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+      Admin
+    </button>
+  </div>
+
+  <header>
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+  </header>
+
+  <div id="sections"></div>
+
+  <footer>Sites and settings are saved in this browser.</footer>
+</main>
+
+<!-- Settings -->
+<div class="overlay" id="settings" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="sheet-head"><h3 id="settingsTitle">Settings</h3><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+    <section>
+      <h4>Background</h4>
+      <div class="bgs" id="bgTiles"></div>
+    </section>
+    <section>
+      <h4>Tab</h4>
+      <div class="field"><label for="optTitle">Tab title</label><input type="text" id="optTitle" placeholder="Link Hub" autocomplete="off"></div>
+      <div class="field"><label for="optIcon">Icon address</label>
+        <div class="row2"><input type="text" id="optIcon" placeholder="Paste an image or site address" autocomplete="off"><img id="iconPrev" class="prev" alt="" width="36" height="36" hidden></div>
+      </div>
+      <div class="row2">
+        <button class="btn ghost" type="button" id="optIconPick">Upload an image</button>
+        <input type="file" id="optIconFile" accept="image/*" hidden>
+        <button class="btn ghost" type="button" id="resetTab">Reset tab</button>
+      </div>
+      <p class="msg" id="tabMsg" role="status"></p>
+    </section>
+  </div>
+</div>
+
+<!-- Admin login -->
+<div class="overlay" id="gate" hidden>
+  <div class="sheet narrow" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+    <div class="sheet-head"><h3 id="gateTitle">Admin login</h3><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+    <form class="row" id="gateForm">
+      <input type="password" id="gatePw" placeholder="Password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Admin password">
+      <button class="btn" type="submit" id="gateBtn">Unlock</button>
+    </form>
+    <p class="msg" id="gateMsg" role="status"></p>
+  </div>
+</div>
+
+<!-- Locked section -->
+<div class="overlay" id="secGate" hidden>
+  <div class="sheet narrow" role="dialog" aria-modal="true" aria-labelledby="secGateTitle">
+    <div class="sheet-head"><h3 id="secGateTitle">Locked section</h3><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+    <form class="row" id="secGateForm">
+      <input type="password" id="secGatePw" placeholder="Section password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Section password">
+      <button class="btn" type="submit" id="secGateBtn">Open</button>
+    </form>
+    <p class="msg" id="secGateMsg" role="status"></p>
+  </div>
+</div>
+
+<!-- Admin -->
+<div class="overlay" id="admin" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+    <div class="sheet-head"><h3 id="adminTitle">Admin panel</h3><button class="x" type="button" data-close aria-label="Close">&times;</button></div>
+    <section>
+      <h4>Add a section</h4>
+      <form class="row" id="secForm">
+        <input type="text" id="secName" placeholder="Section name" autocomplete="off" aria-label="Section name">
+        <input type="password" id="secPw" placeholder="Password (optional)" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Section password (optional)">
+        <button class="btn" type="submit">Add section</button>
+      </form>
+    </section>
+    <section>
+      <h4>Add a site</h4>
+      <form class="row" id="siteForm">
+        <input type="text" id="siteName" placeholder="Button name" autocomplete="off" aria-label="Button name">
+        <input type="text" id="siteUrl" placeholder="https://example.com" autocomplete="off" inputmode="url" aria-label="Site address">
+        <select id="siteSec" aria-label="Section"></select>
+        <button class="btn" type="submit">Add site</button>
+      </form>
+    </section>
+    <section>
+      <h4>Bulk add sites</h4>
+      <form id="bulkForm">
+        <textarea id="bulkText" placeholder="One site per line. Use a name and an address, or just an address.&#10;Truffle https://example.com&#10;https://example.org" aria-label="Sites to add, one per line" spellcheck="false"></textarea>
+        <div class="row2">
+          <select id="bulkSec" aria-label="Section for bulk sites"></select>
+          <button class="btn" type="submit">Add all</button>
+        </div>
+      </form>
+    </section>
+    <p class="msg" id="adminMsg" role="status"></p>
+    <section>
+      <h4>Sections and sites</h4>
+      <div class="manage" id="manage"></div>
+    </section>
+    <section>
+      <button class="btn ghost" type="button" id="resetBtn">Reset to defaults</button>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = "linkhub.v2";
+  /* Admin password is stored only as a salted PBKDF2-SHA256 hash (210,000 rounds). */
+  var PW_SALT = "eb44a6b9bb422ab192ce0b5dd47dc89b";
+  var PW_HASH = "bb16397fda70f65521748186ea65959acb82974751104f8d796c04f51098a3b3";
+  var PW_ITER = 210000;
+
+  var DEFAULT = {
+    settings: { bg: "aurora", tabTitle: "", favicon: "" },
+    sections: [{
+      id: "proxies", name: "Proxies",
+      links: [
+        { id: "l1", name: "Lucide1", url: "https://s3.amazonaws.com/camzontop/study" },
+        { id: "l2", name: "Truffle", url: "https://health.wvpreschool.org/" },
+        { id: "l3", name: "Lucide3", url: "https://pirettisports.com/" },
+        { id: "l4", name: "Lucide2", url: "https://testingcf.jsdelivr.net/gh/lucideproxy/svg@latest/index.svg" }
+      ]
+    }]
+  };
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function load() {
+    try {
+      var r = localStorage.getItem(KEY);
+      if (r) {
+        var d = JSON.parse(r);
+        if (d && Array.isArray(d.sections)) { d.settings = Object.assign({}, DEFAULT.settings, d.settings); if (d.settings.bg === "bubbles") d.settings.bg = "fireflies"; return d; }
+      }
+    } catch (e) {}
+    return clone(DEFAULT);
+  }
+  var state = load();
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+  function uid() { return Math.random().toString(36).slice(2, 9); }
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) for (var k in attrs) { if (k === "class") n.className = attrs[k]; else n.setAttribute(k, attrs[k]); }
+    (Array.isArray(kids) ? kids : kids == null ? [] : [kids]).forEach(function (c) {
+      n.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+    });
+    return n;
+  }
+
+  /* ---------- Clock ---------- */
+  function tick() {
+    var d = new Date();
+    $("clock").textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    $("date").textContent = d.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  }
+  tick(); setInterval(tick, 15000);
+
+  /* ---------- Links (buttons only: no visible address, no context menu) ---------- */
+  function hostOf(u) { try { return new URL(u).hostname; } catch (e) { return u; } }
+  function badgeOf(name) {
+    var m = name.match(/\d+$/);
+    return (name.charAt(0) || "?").toUpperCase() + (m ? m[0] : "");
+  }
+  function go(url) {
+    var title = (state.settings.tabTitle || "").trim() || "Link Hub";
+    var icon = (state.settings.favicon || "").trim();
+    var w = null;
+    try { w = window.open("about:blank", "_blank"); } catch (e) {}
+    if (w) {
+      try {
+        var d = w.document;
+        d.title = title;
+        if (icon) { var l = d.createElement("link"); l.rel = "icon"; l.href = icon; d.head.appendChild(l); }
+        d.body.style.cssText = "margin:0;height:100vh;background:#fff";
+        var f = d.createElement("iframe");
+        f.src = url;
+        f.style.cssText = "border:0;width:100%;height:100vh;display:block";
+        f.setAttribute("allow", "fullscreen");
+        d.body.appendChild(f);
+        return;
+      } catch (e) { try { w.location.href = url; return; } catch (e2) {} }
+    }
+    var a = document.createElement("a");
+    a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer"; a.style.display = "none";
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function linkEl(l) {
+    var b = el("button", { class: "link", type: "button", draggable: "false" }, [
+      el("span", { class: "badge" }, badgeOf(l.name)),
+      el("span", { class: "name" }, l.name)
+    ]);
+    b.addEventListener("click", function () { go(l.url); });
+    b.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    b.addEventListener("dragstart", function (e) { e.preventDefault(); });
+    return b;
+  }
+  var view = null, unlockedSec = {};
+  function lockIcon() {
+    var s = el("span", { class: "lock", "aria-label": "Locked" });
+    s.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+    return s;
+  }
+  function openSection(sec) {
+    if (sec.pw && !unlockedSec[sec.id]) { askSectionPassword(sec); return; }
+    view = sec.id; render(); window.scrollTo(0, 0);
+  }
+  function render() {
+    var root = $("sections");
+    root.textContent = "";
+    var cur = null;
+    state.sections.forEach(function (s) { if (s.id === view) cur = s; });
+    if (cur && (!cur.pw || unlockedSec[cur.id])) {
+      var back = el("button", { class: "pill", type: "button" });
+      back.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>All sections';
+      back.addEventListener("click", function () { view = null; render(); });
+      var g = el("div", { class: "grid" });
+      cur.links.forEach(function (l) { g.appendChild(linkEl(l)); });
+      if (!cur.links.length) g.appendChild(el("p", { class: "hint" }, "No sites in this section yet."));
+      root.appendChild(el("section", { class: "sec" }, [el("div", { class: "sec-head" }, [back, el("h2", null, cur.name)]), g]));
+      return;
+    }
+    view = null;
+    if (!state.sections.length) {
+      root.appendChild(el("p", { class: "hint" }, "No sections yet. Unlock Admin to add one."));
+      return;
+    }
+    var grid = el("div", { class: "grid" });
+    state.sections.forEach(function (sec) {
+      var n = sec.links.length;
+      var card = el("button", { class: "link", type: "button" }, [
+        el("span", { class: "badge" }, (sec.name.charAt(0) || "?").toUpperCase()),
+        el("span", { class: "text" }, [el("span", { class: "name" }, sec.name), el("span", { class: "sub" }, n + (n === 1 ? " site" : " sites"))])
+      ]);
+      if (sec.pw) card.appendChild(lockIcon());
+      card.addEventListener("click", function () { openSection(sec); });
+      grid.appendChild(card);
+    });
+    root.appendChild(el("section", { class: "sec" }, [el("h2", null, "Sections"), grid]));
+  }
+
+  /* ---------- Background effects ---------- */
+  var cv = $("bg"), cx = cv.getContext("2d"), W = 0, H = 0, DPR = 1, cur = null, raf = 0, last = 0;
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var PAL = {
+    aurora:   { name: "Aurora",   base: "#0b0d14", cols: ["124,140,255", "176,124,255", "60,200,190", "255,120,170"] },
+    ocean:    { name: "Ocean",    base: "#07111a", cols: ["40,140,255", "0,200,210", "90,120,255", "30,220,170"] },
+    sunset:   { name: "Sunset",   base: "#150c12", cols: ["255,120,90", "255,170,70", "220,80,150", "150,90,230"] },
+    forest:   { name: "Forest",   base: "#08120f", cols: ["60,210,130", "130,220,80", "30,170,150", "90,200,200"] },
+    ember:    { name: "Ember",    base: "#150a0b", cols: ["255,80,70", "255,140,50", "200,50,110", "255,190,90"] },
+    amethyst: { name: "Amethyst", base: "#0e0a18", cols: ["170,90,255", "110,100,255", "240,110,220", "80,180,255"] }
+  };
+  function makeAurora(pal) {
+    return {
+      frame: function (t) {
+        cx.globalCompositeOperation = "source-over";
+        cx.fillStyle = pal.base; cx.fillRect(0, 0, W, H);
+        cx.globalCompositeOperation = "lighter";
+        for (var i = 0; i < 4; i++) {
+          var x = W * (0.5 + 0.38 * Math.sin(t * 0.00021 * (i + 1) + i * 2));
+          var y = H * (0.5 + 0.34 * Math.cos(t * 0.00017 * (i + 2) + i));
+          var r = Math.max(W, H) * 0.45;
+          var g = cx.createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0, "rgba(" + pal.cols[i] + ",.30)");
+          g.addColorStop(1, "rgba(" + pal.cols[i] + ",0)");
+          cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+        }
+        cx.globalCompositeOperation = "source-over";
+      }
+    };
+  }
+  var FX = {};
+  Object.keys(PAL).forEach(function (k) { FX[k] = makeAurora(PAL[k]); });
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (cur && reduce) cur.frame(1000, 16);
+  }
+  function loop(ts) { raf = requestAnimationFrame(loop); var dt = Math.min(ts - last, 50); last = ts; cur.frame(ts, dt); }
+  function setBg(name) {
+    cancelAnimationFrame(raf);
+    cur = FX[name] || FX.aurora;
+    if (cur.init) cur.init();
+    if (reduce) { cur.frame(1000, 60); return; }
+    last = performance.now(); raf = requestAnimationFrame(loop);
+  }
+  window.addEventListener("resize", resize);
+
+  /* ---------- Settings ---------- */
+  var BGS = Object.keys(PAL).map(function (k) {
+    var c = PAL[k].cols;
+    return [k, PAL[k].name, "linear-gradient(135deg, rgb(" + c[0] + "), rgb(" + c[1] + ") 40%, rgb(" + c[2] + ") 70%, rgb(" + c[3] + "))"];
+  });
+  function renderTiles() {
+    var box = $("bgTiles"); box.textContent = "";
+    BGS.forEach(function (b) {
+      var t = el("button", { class: "tile", type: "button", "aria-pressed": String(state.settings.bg === b[0]) }, [
+        el("span", { class: "sw" }), b[1]
+      ]);
+      t.firstChild.style.background = b[2];
+      t.addEventListener("click", function () { state.settings.bg = b[0]; save(); setBg(b[0]); renderTiles(); });
+      box.appendChild(t);
+    });
+  }
+
+  /* ---------- Tab title and icon (applied instantly) ---------- */
+  var iconLink = null, savedIcons = null, iconSeq = 0, iconTimer = 0, pasted = false;
+  function tabMsg(t, err) { var m = $("tabMsg"); m.textContent = t || ""; m.className = "msg" + (err ? " err" : ""); }
+  function applyTab() {
+    document.title = (state.settings.tabTitle || "").trim() || "Link Hub";
+    if (iconLink && iconLink.parentNode) iconLink.parentNode.removeChild(iconLink);
+    iconLink = null;
+    var f = (state.settings.favicon || "").trim(), pv = $("iconPrev");
+    if (f) {
+      if (!savedIcons) {
+        savedIcons = [];
+        Array.prototype.forEach.call(document.querySelectorAll('link[rel~="icon"]'), function (l) { savedIcons.push(l); l.parentNode.removeChild(l); });
+      }
+      iconLink = document.createElement("link");
+      iconLink.rel = "icon"; iconLink.href = f;
+      document.head.appendChild(iconLink);
+      pv.src = f; pv.hidden = false;
+    } else {
+      if (savedIcons) { savedIcons.forEach(function (l) { document.head.appendChild(l); }); savedIcons = null; }
+      pv.hidden = true; pv.removeAttribute("src");
+    }
+  }
+  $("iconPrev").addEventListener("error", function () { this.hidden = true; });
+  function syncTabInputs() {
+    $("optTitle").value = state.settings.tabTitle || "";
+    var f = state.settings.favicon || "";
+    $("optIcon").value = /^data:/i.test(f) ? "" : f;
+  }
+  function probe(u, cb) { var i = new Image(); i.onload = function () { cb(true); }; i.onerror = function () { cb(false); }; i.src = u; }
+  function commitIcon(u) { state.settings.favicon = u; save(); applyTab(); tabMsg("Icon updated."); }
+  function setIconFrom(v) {
+    var seq = ++iconSeq;
+    if (!v) { state.settings.favicon = ""; save(); applyTab(); tabMsg(""); return; }
+    if (/^data:image\//i.test(v)) { commitIcon(v); return; }
+    if (!/^https?:\/\/[^\s]+\.[^\s]+/i.test(v)) { tabMsg("Paste a full https:// address.", true); return; }
+    tabMsg("Loading icon...");
+    probe(v, function (ok) {
+      if (seq !== iconSeq) return;
+      if (ok) { commitIcon(v); return; }
+      var host = "";
+      try { host = new URL(v).hostname; } catch (e) {}
+      if (!host) { tabMsg("Could not load an image from that address.", true); return; }
+      var g = "https://www.google.com/s2/favicons?domain=" + encodeURIComponent(host) + "&sz=64";
+      probe(g, function (ok2) {
+        if (seq !== iconSeq) return;
+        if (ok2) { commitIcon(g); tabMsg("That address is not an image, so the site's own icon is used."); }
+        else tabMsg("Could not load an image from that address.", true);
+      });
+    });
+  }
+  $("optTitle").addEventListener("input", function (e) {
+    state.settings.tabTitle = e.target.value; save(); applyTab();
+  });
+  $("optIcon").addEventListener("paste", function () { pasted = true; });
+  $("optIcon").addEventListener("input", function (e) {
+    var v = e.target.value.trim(), wait = pasted ? 0 : 350;
+    pasted = false;
+    clearTimeout(iconTimer);
+    iconTimer = setTimeout(function () { setIconFrom(v); }, wait);
+  });
+  $("optIconPick").addEventListener("click", function () { $("optIconFile").click(); });
+  $("optIconFile").addEventListener("change", function (e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var r = new FileReader();
+    r.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var iw = img.naturalWidth || 64, ih = img.naturalHeight || 64, side = Math.min(iw, ih);
+        var c = document.createElement("canvas"); c.width = 64; c.height = 64;
+        c.getContext("2d").drawImage(img, (iw - side) / 2, (ih - side) / 2, side, side, 0, 0, 64, 64);
+        iconSeq++;
+        state.settings.favicon = c.toDataURL("image/png");
+        save(); syncTabInputs(); applyTab(); tabMsg("Icon updated from your image.");
+      };
+      img.onerror = function () { tabMsg("That file is not an image.", true); };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+    e.target.value = "";
+  });
+  $("resetTab").addEventListener("click", function () {
+    iconSeq++; clearTimeout(iconTimer);
+    state.settings.tabTitle = ""; state.settings.favicon = "";
+    save(); syncTabInputs(); applyTab(); tabMsg("Tab reset.");
+  });
+
+  /* ---------- Admin password ---------- */
+  var unlocked = false;
+  function unhex(h) { var a = new Uint8Array(h.length / 2); for (var i = 0; i < a.length; i++) a[i] = parseInt(h.substr(i * 2, 2), 16); return a; }
+  function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ("0" + b.toString(16)).slice(-2); }).join(""); }
+
+  /* PBKDF2-SHA256 in plain JS, used when the browser has no Web Crypto (for example a page served over plain http). */
+  var K256 = new Uint32Array([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+  ]);
+  var IV256 = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+  var Wb = new Uint32Array(64);
+  function compress(st, blk, out) {
+    var W = Wb, i, a = st[0], b = st[1], c = st[2], d = st[3], e = st[4], f = st[5], g = st[6], h = st[7];
+    for (i = 0; i < 16; i++) W[i] = blk[i];
+    for (i = 16; i < 64; i++) {
+      var x = W[i - 15], y = W[i - 2];
+      var s0 = ((x >>> 7) | (x << 25)) ^ ((x >>> 18) | (x << 14)) ^ (x >>> 3);
+      var s1 = ((y >>> 17) | (y << 15)) ^ ((y >>> 19) | (y << 13)) ^ (y >>> 10);
+      W[i] = (W[i - 16] + s0 + W[i - 7] + s1) | 0;
+    }
+    for (i = 0; i < 64; i++) {
+      var S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+      var ch = (e & f) ^ (~e & g);
+      var t1 = (h + S1 + ch + K256[i] + W[i]) | 0;
+      var S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+      var mj = (a & b) ^ (a & c) ^ (b & c);
+      var t2 = (S0 + mj) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    out[0] = st[0] + a; out[1] = st[1] + b; out[2] = st[2] + c; out[3] = st[3] + d;
+    out[4] = st[4] + e; out[5] = st[5] + f; out[6] = st[6] + g; out[7] = st[7] + h;
+  }
+  function words(bytes, o, blk) {
+    for (var i = 0; i < 16; i++) blk[i] = (bytes[o + 4 * i] << 24) | (bytes[o + 4 * i + 1] << 16) | (bytes[o + 4 * i + 2] << 8) | bytes[o + 4 * i + 3];
+  }
+  function wordsToBytes(w) {
+    var r = new Uint8Array(w.length * 4);
+    for (var i = 0; i < w.length; i++) { r[4 * i] = w[i] >>> 24; r[4 * i + 1] = (w[i] >>> 16) & 255; r[4 * i + 2] = (w[i] >>> 8) & 255; r[4 * i + 3] = w[i] & 255; }
+    return r;
+  }
+  function sha256Bytes(bytes) {
+    var len = bytes.length, total = ((len + 9 + 63) >> 6) << 6, buf = new Uint8Array(total), bits = len * 8;
+    buf.set(bytes); buf[len] = 0x80;
+    buf[total - 4] = (bits >>> 24) & 255; buf[total - 3] = (bits >>> 16) & 255; buf[total - 2] = (bits >>> 8) & 255; buf[total - 1] = bits & 255;
+    var st = new Uint32Array(IV256), out = new Uint32Array(8), blk = new Uint32Array(16);
+    for (var o = 0; o < total; o += 64) { words(buf, o, blk); compress(st, blk, out); st.set(out); }
+    return wordsToBytes(st);
+  }
+  function concatBytes(a, b) { var r = new Uint8Array(a.length + b.length); r.set(a); r.set(b, a.length); return r; }
+  function pbkdf2Js(pw, salt, iter) {
+    var key = new Uint8Array(64), ip = new Uint8Array(64), op = new Uint8Array(64), i, j;
+    key.set(pw.length > 64 ? sha256Bytes(pw) : pw);
+    for (i = 0; i < 64; i++) { ip[i] = key[i] ^ 0x36; op[i] = key[i] ^ 0x5c; }
+    var iBlk = new Uint32Array(16), oBlk = new Uint32Array(16), iv = new Uint32Array(IV256);
+    words(ip, 0, iBlk); words(op, 0, oBlk);
+    var iSt = new Uint32Array(8), oSt = new Uint32Array(8);
+    compress(iv, iBlk, iSt); compress(iv, oBlk, oSt);
+    var first = new Uint8Array(salt.length + 4);
+    first.set(salt); first[salt.length + 3] = 1;
+    var u1 = sha256Bytes(concatBytes(op, sha256Bytes(concatBytes(ip, first))));
+    var U = new Uint32Array(8), T = new Uint32Array(8);
+    for (j = 0; j < 8; j++) U[j] = (u1[4 * j] << 24) | (u1[4 * j + 1] << 16) | (u1[4 * j + 2] << 8) | u1[4 * j + 3];
+    T.set(U);
+    var blk = new Uint32Array(16), tmp = new Uint32Array(8), res = new Uint32Array(8);
+    blk[8] = 0x80000000; blk[15] = 768;
+    for (var n = 1; n < iter; n++) {
+      for (j = 0; j < 8; j++) blk[j] = U[j];
+      compress(iSt, blk, tmp);
+      for (j = 0; j < 8; j++) blk[j] = tmp[j];
+      compress(oSt, blk, res);
+      for (j = 0; j < 8; j++) { U[j] = res[j]; T[j] ^= res[j]; }
+    }
+    return wordsToBytes(T);
+  }
+  function deriveHex(pw, saltHex, iter) {
+    var enc = new TextEncoder().encode(pw), salt = unhex(saltHex);
+    function viaJs() { return new Promise(function (resolve) { setTimeout(function () { resolve(hex(pbkdf2Js(enc, salt, iter))); }, 30); }); }
+    var subtle = typeof crypto !== "undefined" && crypto.subtle;
+    if (!subtle) return viaJs();
+    return subtle.importKey("raw", enc, "PBKDF2", false, ["deriveBits"]).then(function (key) {
+      return subtle.deriveBits({ name: "PBKDF2", salt: salt, iterations: iter, hash: "SHA-256" }, key, 256);
+    }).then(hex, viaJs);
+  }
+  function hashNew(pw) {
+    var salt = hex(crypto.getRandomValues(new Uint8Array(16))), iter = 100000;
+    return deriveHex(pw, salt, iter).then(function (h) { return { salt: salt, hash: h, iter: iter }; });
+  }
+
+  function gateMsg(t, err) { var m = $("gateMsg"); m.textContent = t || ""; m.className = "msg" + (err ? " err" : ""); }
+  $("gateForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var pw = $("gatePw").value.trim(), btn = $("gateBtn");
+    if (!pw) { gateMsg("Enter the password.", true); return; }
+    btn.disabled = true; gateMsg("Checking...");
+    deriveHex(pw, PW_SALT, PW_ITER).then(function (h) {
+      btn.disabled = false;
+      $("gatePw").value = "";
+      if (h === PW_HASH) { unlocked = true; gateMsg(""); closeAll(); renderAdmin(); msg(""); openModal("admin"); }
+      else gateMsg("Wrong password.", true);
+    }).catch(function () {
+      btn.disabled = false;
+      gateMsg("Could not check the password in this browser.", true);
+    });
+  });
+
+  var gateSec = null;
+  function askSectionPassword(sec) {
+    gateSec = sec;
+    $("secGateTitle").textContent = sec.name;
+    $("secGateMsg").textContent = ""; $("secGateMsg").className = "msg";
+    $("secGatePw").value = "";
+    openModal("secGate");
+  }
+  $("secGateForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var sec = gateSec, pw = $("secGatePw").value.trim(), btn = $("secGateBtn"), m = $("secGateMsg");
+    if (!sec || !sec.pw) return;
+    if (!pw) { m.textContent = "Enter the password."; m.className = "msg err"; return; }
+    btn.disabled = true; m.textContent = "Checking..."; m.className = "msg";
+    deriveHex(pw, sec.pw.salt, sec.pw.iter).then(function (h) {
+      btn.disabled = false;
+      $("secGatePw").value = "";
+      if (h === sec.pw.hash) {
+        unlockedSec[sec.id] = true; closeAll();
+        view = sec.id; render(); window.scrollTo(0, 0);
+      } else { m.textContent = "Wrong password."; m.className = "msg err"; }
+    }).catch(function () {
+      btn.disabled = false; m.textContent = "Could not check the password in this browser."; m.className = "msg err";
+    });
+  });
+
+  /* ---------- Admin ---------- */
+  var armed = null, armTimer = 0;
+  function msg(text, err) { var m = $("adminMsg"); m.textContent = text || ""; m.className = "msg" + (err ? " err" : ""); }
+  function twoStep(btn, label, action, key) {
+    btn.addEventListener("click", function () {
+      if (armed === key) { armed = null; clearTimeout(armTimer); action(); return; }
+      armed = key; btn.textContent = "Click again";
+      clearTimeout(armTimer);
+      armTimer = setTimeout(function () { armed = null; btn.textContent = label; }, 3000);
+    });
+  }
+  function renderAdmin() {
+    ["siteSec", "bulkSec"].forEach(function (id) {
+      var sel = $(id), keep = sel.value; sel.textContent = "";
+      state.sections.forEach(function (s) { sel.appendChild(el("option", { value: s.id }, s.name)); });
+      if (keep) sel.value = keep;
+    });
+    var m = $("manage"); m.textContent = "";
+    if (!state.sections.length) m.appendChild(el("p", { class: "hint" }, "No sections yet."));
+    state.sections.forEach(function (sec) {
+      var del = el("button", { class: "small-btn", type: "button" }, "Delete section");
+      twoStep(del, "Delete section", function () {
+        state.sections = state.sections.filter(function (s) { return s.id !== sec.id; });
+        if (view === sec.id) view = null;
+        save(); render(); renderAdmin(); msg("Section deleted.");
+      }, "sec-" + sec.id);
+      var box = el("div", { class: "msec" }, [el("div", { class: "msec-head" }, [el("strong", null, sec.name + (sec.pw ? " (locked)" : "")), del])]);
+
+      var pwIn = el("input", { type: "password", id: "pw-" + sec.id, placeholder: sec.pw ? "New password" : "Set a password", autocomplete: "new-password", autocapitalize: "off", autocorrect: "off", spellcheck: "false", "aria-label": "Password for " + sec.name });
+      var setBtn = el("button", { class: "small-btn", type: "button" }, sec.pw ? "Change" : "Lock");
+      setBtn.addEventListener("click", function () {
+        var v = pwIn.value.trim();
+        if (!v) { msg("Type a password first.", true); return; }
+        hashNew(v).then(function (pw) {
+          sec.pw = pw; delete unlockedSec[sec.id];
+          save(); render(); renderAdmin(); msg("Password set for " + sec.name + ".");
+        }).catch(function () { msg("Could not set the password in this browser.", true); });
+      });
+      var kids = [pwIn, setBtn];
+      if (sec.pw) {
+        var off = el("button", { class: "small-btn", type: "button" }, "Remove");
+        twoStep(off, "Remove", function () {
+          delete sec.pw; delete unlockedSec[sec.id];
+          save(); render(); renderAdmin(); msg("Password removed from " + sec.name + ".");
+        }, "unlock-" + sec.id);
+        kids.push(off);
+      }
+      box.appendChild(el("div", { class: "mrow pwrow" }, kids));
+
+      sec.links.forEach(function (l) {
+        var rm = el("button", { class: "small-btn", type: "button" }, "Remove");
+        rm.addEventListener("click", function () {
+          sec.links = sec.links.filter(function (x) { return x.id !== l.id; });
+          save(); render(); renderAdmin(); msg("Site removed.");
+        });
+        box.appendChild(el("div", { class: "mrow" }, [el("span", null, [l.name, el("small", null, hostOf(l.url))]), rm]));
+      });
+      if (!sec.links.length) box.appendChild(el("div", { class: "mrow" }, el("span", { class: "hint" }, "No sites yet")));
+      m.appendChild(box);
+    });
+  }
+  $("secForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var n = $("secName").value.trim(), pw = $("secPw").value.trim();
+    if (!n) { msg("Enter a section name.", true); return; }
+    var sec = { id: uid(), name: n, links: [] };
+    function finish() {
+      state.sections.push(sec);
+      $("secName").value = ""; $("secPw").value = "";
+      save(); render(); renderAdmin();
+      $("siteSec").value = $("bulkSec").value = sec.id;
+      msg("Added section " + n + (sec.pw ? " with a password." : "."));
+    }
+    if (pw) {
+      hashNew(pw).then(function (h) { sec.pw = h; finish(); })
+        .catch(function () { msg("Could not set the password in this browser.", true); });
+    } else finish();
+  });
+  $("siteForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var n = $("siteName").value.trim(), u = $("siteUrl").value.trim(), sid = $("siteSec").value;
+    var sec = state.sections.filter(function (s) { return s.id === sid; })[0];
+    if (!sec) { msg("Add a section first.", true); return; }
+    if (!n || !u) { msg("Enter a name and an address.", true); return; }
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(u)) u = "https://" + u;
+    try { var p = new URL(u); if (p.protocol !== "https:" && p.protocol !== "http:") throw 0; } catch (err) { msg("That address is not a valid web link.", true); return; }
+    sec.links.push({ id: uid(), name: n, url: u });
+    $("siteName").value = ""; $("siteUrl").value = ""; save(); render(); renderAdmin();
+    msg("Added " + n + " to " + sec.name + ".");
+  });
+  $("bulkForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var sec = state.sections.filter(function (s) { return s.id === $("bulkSec").value; })[0];
+    if (!sec) { msg("Add a section first.", true); return; }
+    var lines = $("bulkText").value.split(/\r?\n/), added = 0, skipped = 0;
+    lines.forEach(function (raw) {
+      var line = raw.trim();
+      if (!line) return;
+      var url = "", name = "", m = line.match(/https?:\/\/[^\s,|]+/i);
+      if (m) { url = m[0]; name = line.replace(url, ""); }
+      else {
+        var parts = line.split(/[\s,|]+/), last = parts[parts.length - 1];
+        if (last && last.indexOf(".") > 0) { url = "https://" + last; name = line.slice(0, line.lastIndexOf(last)); }
+      }
+      name = name.replace(/^[\s,|:\-]+|[\s,|:\-]+$/g, "");
+      var host = "";
+      try {
+        var u = new URL(url);
+        if (u.protocol !== "https:" && u.protocol !== "http:") throw 0;
+        host = u.hostname;
+      } catch (err) { skipped++; return; }
+      if (!name) name = host.replace(/^www\./, "");
+      sec.links.push({ id: uid(), name: name, url: url });
+      added++;
+    });
+    if (added) { $("bulkText").value = ""; save(); render(); renderAdmin(); }
+    var text = added
+      ? "Added " + added + " site" + (added === 1 ? "" : "s") + " to " + sec.name + "." + (skipped ? " Skipped " + skipped + " line" + (skipped === 1 ? "" : "s") + " with no valid address." : "")
+      : "No valid addresses found.";
+    msg(text, !added);
+  });
+
+  twoStep($("resetBtn"), "Reset to defaults", function () {
+    state = clone(DEFAULT); save(); render(); renderAdmin(); renderTiles(); syncTabInputs(); applyTab(); setBg(state.settings.bg);
+    $("resetBtn").textContent = "Reset to defaults"; msg("Everything reset.");
+  }, "reset");
+
+  /* ---------- Modals ---------- */
+  function openModal(id) { var m = $(id); m.hidden = false; var f = m.querySelector("input[type=text],input[type=password],button.tile,input"); if (f) f.focus(); }
+  function closeAll() { $("settings").hidden = true; $("admin").hidden = true; $("gate").hidden = true; $("secGate").hidden = true; }
+  $("openSettings").addEventListener("click", function () { renderTiles(); openModal("settings"); });
+  $("openAdmin").addEventListener("click", function () {
+    if (unlocked) { renderAdmin(); msg(""); openModal("admin"); }
+    else { gateMsg(""); openModal("gate"); }
+  });
+  document.querySelectorAll("[data-close]").forEach(function (b) { b.addEventListener("click", closeAll); });
+  document.querySelectorAll(".overlay").forEach(function (o) { o.addEventListener("mousedown", function (e) { if (e.target === o) closeAll(); }); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAll(); });
+
+  /* ---------- Start ---------- */
+  if (!PAL[state.settings.bg]) state.settings.bg = "aurora";
+  render(); renderTiles(); syncTabInputs(); applyTab(); resize(); setBg(state.settings.bg);
+})();
+</script>
+
+</body>
+</html>
